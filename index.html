@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Own AI - Project Manager</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Marked (Markdown Rendering) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Google Fonts: Inter (Sans) and Libre Baskerville (Serif) -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Libre Baskerville', 'serif'],
+                    },
+                    colors: {
+                        background: '#131316',
+                        sidebar: '#000000',
+                        surface: '#1c1c1f',
+                        accent: '#60a5fa',     // Switching to a blue-ish accent for DeepSeek
+                        text: '#ececec',
+                        muted: '#a1a1aa'
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-out',
+                        'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #131316;
+            color: #ececec;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .premium-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #ececec;
+            transition: all 0.2s ease;
+        }
+
+        .premium-input:focus {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+            outline: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        h1,
+        h2,
+        h3,
+        .serif {
+            font-family: 'Libre Baskerville', serif;
+        }
+
+        .markdown-body p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .markdown-body pre {
+            background: #000;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid #333;
+        }
+
+        .markdown-body code {
+            font-family: 'Menlo', monospace;
+            font-size: 0.85em;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0.2em 0.4em;
+            border-radius: 0.25em;
+        }
+
+        .markdown-body ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-body ol {
+            list-style-type: decimal;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Chain of Thought / Reasoning style for DeepSeek R1 */
+        .thought-block {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid #60a5fa;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #a1a1aa;
+            font-size: 0.9em;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+
+        /* Message Actions */
+        .message-group {
+            position: relative;
+        }
+
+        .message-actions {
+            position: absolute;
+            top: -10px;
+            right: 0;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            transform: translateY(5px);
+            z-index: 10;
+        }
+
+        .message-group:hover .message-actions {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .action-btn {
+            background: #1c1c1f;
+            border: 1px solid #333;
+            color: #a1a1aa;
+            padding: 6px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #2a2a2e;
+            color: white;
+            border-color: #444;
+        }
+
+        /* Custom Modal / Toast */
+        #customDialogOverlay {
+            transition: opacity 0.3s ease;
+        }
+
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-col-reverse: column;
+            gap: 8px;
+        }
+
+        .toast {
+            background: #1c1c1f;
+            border: 1px solid #333;
+            color: #ececec;
+            padding: 12px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideIn 0.3s ease-out;
+            max-width: 320px;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+<link rel="me" href="https://www.blogger.com/profile/02302725608151393881" />
+<meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109'/>
+<meta name='google-adsense-platform-domain' content='blogspot.com'/>
+</head>
+
+<body class="h-screen w-full overflow-hidden flex text-[15px]">
+
+    <!-- SIDEBAR -->
+    <aside class="w-[260px] flex-shrink-0 bg-sidebar flex flex-col h-full border-r border-[#222] z-20">
+        <!-- Brand -->
+        <div class="p-5 flex items-center justify-between group">
+            <div class="flex items-center gap-3 opacity-90 group-hover:opacity-100 transition">
+                <div
+                    class="w-8 h-8 rounded bg-[#222] flex items-center justify-center text-white font-serif font-bold text-lg border border-[#333]">
+                    Ai
+                </div>
+                <span class="font-bold text-lg tracking-tight serif">Own AI</span>
+            </div>
+            <button onclick="openSettingsModal()" class="text-gray-500 hover:text-white transition p-1"
+                title="API Settings">
+                <!-- Settings Gear Icon SVG -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="opacity-70" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z">
+                    </path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Start New Chat / Dashboard -->
+        <div class="px-3 mb-2">
+            <button onclick="showDashboard()"
+                class="w-full flex items-center gap-3 bg-[#1e1e1e] hover:bg-[#2a2a2a] text-gray-200 transition-all font-medium py-2 px-3 rounded-lg border border-[#333] text-sm group shadow-sm">
+                <!-- Custom Projects Layout Icon SVG -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    class="text-gray-400 group-hover:text-white transition">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <span>Projects</span>
+            </button>
+        </div>
+
+        <!-- Project List Label -->
+        <div class="px-5 mt-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recents</div>
+
+        <!-- Project List -->
+        <div class="flex-1 overflow-y-auto px-3 space-y-0.5" id="sidebarProjectList">
+            <!-- Sidebar Items injected here -->
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-[#222]">
+            <div class="flex items-center gap-3 opacity-60 hover:opacity-100 transition">
+                <div
+                    class="w-8 h-8 rounded-full bg-[#222] flex items-center justify-center text-[10px] font-bold text-gray-400 border border-[#333]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                </div>
+                <div class="flex-1 overflow-hidden">
+                    <p class="text-[10px] text-gray-500 font-mono tracking-tighter">LOCAL STORAGE ACTIVE</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 flex flex-col relative h-full bg-background transition-all">
+
+        <!-- === VIEW: DASHBOARD (PROJECTS) === -->
+        <div id="dashboardView"
+            class="absolute inset-0 z-10 bg-background flex flex-col p-8 md:p-12 overflow-y-auto animate-fade-in">
+            <!-- Dashboard Header -->
+            <div class="flex justify-between items-end mb-12 max-w-5xl mx-auto w-full">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-serif text-white mb-2">Projects</h1>
+                    <p class="text-gray-400 text-sm">Design and deploy your custom AI personas.</p>
+                </div>
+                <button onclick="openProjectModal()"
+                    class="px-5 py-2.5 bg-[#d97757] hover:bg-[#c56a4b] text-white rounded-lg font-medium transition shadow-lg shadow-orange-950/30 flex items-center gap-2 text-sm">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
+                        viewBox="0 0 24 24">
+                        <path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    New Project
+                </button>
+            </div>
+
+            <!-- Dashboard Content -->
+            <div class="max-w-5xl mx-auto w-full">
+                <!-- Search -->
+                <div class="relative mb-10">
+                    <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" width="18" height="18"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" placeholder="Search your projects..."
+                        class="w-full bg-[#1c1c1f] border border-[#333] hover:border-[#444] rounded-xl py-3.5 pl-12 pr-4 text-gray-300 focus:outline-none focus:border-gray-500 transition-all placeholder-gray-600 shadow-sm">
+                </div>
+
+                <!-- Projects Grid -->
+                <div id="dashboardGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Cards injected here -->
+                </div>
+
+                <div id="dashboardEmpty" class="hidden text-center py-24 text-gray-500">
+                    <p class="opacity-40 text-4xl mb-6 font-serif italic text-gray-700 select-none">Untitled Universe
+                    </p>
+                    <p class="text-sm tracking-wide">Ready to start your first specialized instruction set?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- === VIEW: CHAT INTERFACE === -->
+        <div id="chatView" class="absolute inset-0 z-0 flex flex-col hidden bg-background">
+            <!-- Chat Header -->
+            <header class="h-14 flex items-center justify-between px-6 border-b border-[#222]">
+                <div class="flex items-center gap-2">
+                    <span
+                        class="text-gray-600 hover:text-gray-400 cursor-pointer text-[11px] uppercase tracking-widest font-bold transition-colors"
+                        onclick="showDashboard()">PROJECTS /</span>
+                    <h2 id="currentProjectName" class="font-serif text-gray-100 text-lg">Project Name</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="exportConversation()" class="text-gray-500 hover:text-white transition-colors p-2"
+                        title="Save Conversation to File">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
+                    <button onclick="clearChat()" class="text-gray-500 hover:text-gray-300 transition-colors p-2"
+                        title="Reset Current Chat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6"></path>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                    </button>
+                    <button onclick="openProjectModal(true)"
+                        class="text-gray-500 hover:text-[#60a5fa] transition-colors p-2" title="Edit Instructions">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path
+                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                            </path>
+                        </svg>
+                    </button>
+                    <button id="deleteProjectBtn" onclick="deleteActiveProject()"
+                        class="text-gray-500 hover:text-red-500 transition-colors p-2" title="Delete Alignment">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                            </path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                    <div class="h-4 w-[1px] bg-[#333]"></div>
+                    <span
+                        class="text-[10px] font-mono text-gray-600 bg-[#1c1c1f] px-2 py-1 rounded border border-[#222]">DEEPSEEK-R1</span>
+                </div>
+            </header>
+
+            <!-- Messages List -->
+            <div id="messagesContainer" class="flex-1 overflow-y-auto p-4 md:p-0 space-y-6 scroll-smooth">
+                <div class="max-w-3xl mx-auto w-full py-10 px-4 flex flex-col gap-8" id="messagesInner">
+                    <!-- Messages will be appended here -->
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="flex-shrink-0 p-4 pb-8 bg-background">
+                <div class="max-w-3xl mx-auto w-full relative group">
+                    <textarea id="chatInput" placeholder="Type a message..."
+                        class="w-full bg-[#1c1c1f] border border-[#333] rounded-2xl pl-5 pr-14 py-4 resize-none shadow-2xl text-[16px] text-gray-200 focus:outline-none focus:border-gray-500 transition-all leading-relaxed"
+                        rows="1" style="min-height: 60px; max-height: 250px;"
+                        oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 250) + 'px'"
+                        onkeydown="handleEnter(event)"></textarea>
+                    <button id="sendBtn" onclick="sendMessage()"
+                        class="absolute right-3 bottom-3 p-2.5 rounded-xl bg-[#d97757]/10 text-[#d97757] hover:bg-[#d97757] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-gray-600"
+                        disabled>
+                        <!-- Custom Arrow Up SVG -->
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="19" x2="12" y2="5"></line>
+                            <polyline points="5 12 12 5 19 12"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <p class="text-center text-[10px] text-gray-600 mt-4 tracking-wide font-medium">Own AI strictly follows
+                    your custom system instructions.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal: Create Project -->
+    <div id="projectModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in">
+        <div class="w-full max-w-lg bg-[#18181b] border border-[#333] rounded-2xl shadow-2xl p-8 m-4 animate-slide-up">
+            <h3 class="text-2xl font-serif text-white mb-8 italic">New Alignment</h3>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-[0.2em]">Project
+                        Title</label>
+                    <input type="text" id="newProjectName" class="w-full premium-input rounded-xl px-4 py-3 text-base"
+                        placeholder="e.g. Code Architect">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-[0.2em]">
+                        System Instructions
+                    </label>
+                    <textarea id="newProjectInstructions"
+                        class="w-full premium-input rounded-xl px-4 py-3 h-48 resize-none text-[15px] leading-relaxed"
+                        placeholder="Tell the AI exactly who it is and how it must answer..."></textarea>
+                </div>
+            </div>
+
+            <div class="mt-10 flex justify-end gap-4">
+                <button onclick="closeProjectModal()"
+                    class="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">Cancel</button>
+                <button onclick="createProject()"
+                    class="px-8 py-2.5 bg-[#d97757] hover:bg-[#c56a4b] text-white rounded-xl font-bold transition-all shadow-lg text-sm">Create
+                    Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Settings -->
+    <div id="settingsModal"
+        class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md animate-fade-in">
+        <div class="w-full max-w-md bg-[#18181b] border border-[#333] rounded-2xl shadow-2xl p-8 m-4 animate-slide-up">
+            <div class="flex justify-between items-center mb-8">
+                <h3 class="text-2xl font-serif text-white italic">Settings</h3>
+                <button onclick="closeSettingsModal()"
+                    class="text-gray-500 hover:text-white transition-transform hover:rotate-90 duration-300">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-[0.2em]">OpenRouter
+                        API
+                        Key</label>
+                    <input type="password" id="apiKeyInput"
+                        class="w-full premium-input rounded-xl px-4 py-3 font-mono text-sm"
+                        placeholder="Paste your OpenRouter API key...">
+                    <p class="mt-4 text-[11px] text-gray-500 leading-relaxed">
+                        Data is stored in your browser's private storage. DeepSeek R1 is currently used via <a
+                            href="https://openrouter.ai/keys" target="_blank"
+                            class="text-[#60a5fa] hover:underline">OpenRouter</a>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-10 flex justify-end">
+                <button onclick="saveSettings()"
+                    class="w-full py-3 bg-white text-black hover:bg-gray-100 rounded-xl font-bold transition-all shadow-xl text-sm">Update
+                    Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Dialog Modal -->
+    <div id="customDialogOverlay"
+        class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md">
+        <div
+            class="w-full max-w-sm bg-[#18181b] border border-[#333] rounded-2xl shadow-2xl p-8 m-4 transform animate-slide-up">
+            <h4 id="dialogTitle" class="text-xl font-serif text-white mb-4 italic">Confirm</h4>
+            <p id="dialogMessage" class="text-gray-400 text-sm leading-relaxed mb-8">Are you sure you want to proceed?
+            </p>
+            <div class="flex justify-end gap-4">
+                <button id="dialogCancel"
+                    class="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">Cancel</button>
+                <button id="dialogConfirm"
+                    class="px-8 py-2.5 bg-[#60a5fa] hover:bg-[#3b82f6] text-white rounded-xl font-bold transition-all shadow-lg text-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- LOGIC -->
+    <script>
+        // State
+        let projects = [];
+        let activeProjectId = null;
+        let activeChatId = null;
+        let apiKey = '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';
+
+        const els = {
+            dashboardView: document.getElementById('dashboardView'),
+            chatView: document.getElementById('chatView'),
+            dashboardGrid: document.getElementById('dashboardGrid'),
+            sidebarProjectList: document.getElementById('sidebarProjectList'),
+            messagesInner: document.getElementById('messagesInner'),
+            messagesContainer: document.getElementById('messagesContainer'),
+            chatInput: document.getElementById('chatInput'),
+            sendBtn: document.getElementById('sendBtn'),
+            projectModal: document.getElementById('projectModal'),
+            settingsModal: document.getElementById('settingsModal'),
+            newProjectName: document.getElementById('newProjectName'),
+            newProjectInstructions: document.getElementById('newProjectInstructions'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            currentProjectName: document.getElementById('currentProjectName')
+        };
+
+        // Initialize App
+        async function init() {
+            loadFromStorage();
+            migrateData();
+            if (!apiKey) openSettingsModal();
+
+            if (activeProjectId && activeChatId) {
+                const project = projects.find(p => p.id === activeProjectId);
+                if (project && project.chats.find(c => c.id === activeChatId)) {
+                    openChat(activeProjectId, activeChatId);
+                } else {
+                    showDashboard();
+                }
+            } else {
+                showDashboard();
+            }
+            renderProjects();
+        }
+
+        function migrateData() {
+            let changed = false;
+            projects.forEach(p => {
+                if (p.messages && !p.chats) {
+                    p.chats = [{
+                        id: 'legacy-' + Date.now() + Math.random(),
+                        title: 'Previous Conversation',
+                        messages: p.messages,
+                        updatedAt: p.updatedAt || Date.now()
+                    }];
+                    delete p.messages;
+                    changed = true;
+                }
+                if (!p.chats) {
+                    p.chats = [];
+                    changed = true;
+                }
+            });
+            if (changed) saveToStorage();
+        }
+
+        // Storage Management
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('ownai_projects');
+                if (saved) projects = JSON.parse(saved);
+
+                const storedKey = localStorage.getItem('ownai_apikey');
+                if (storedKey) apiKey = storedKey;
+
+                activeProjectId = localStorage.getItem('ownai_activeId');
+                activeChatId = localStorage.getItem('ownai_activeChatId');
+            } catch (e) { console.error('Storage parse error', e); }
+        }
+        function saveToStorage() {
+            localStorage.setItem('ownai_projects', JSON.stringify(projects));
+            localStorage.setItem('ownai_apikey', apiKey);
+            if (activeProjectId) localStorage.setItem('ownai_activeId', activeProjectId);
+            else localStorage.removeItem('ownai_activeId');
+            if (activeChatId) localStorage.setItem('ownai_activeChatId', activeChatId);
+            else localStorage.removeItem('ownai_activeChatId');
+        }
+
+        // Navigation
+        function showDashboard() {
+            activeProjectId = null;
+            activeChatId = null;
+            saveToStorage();
+            els.chatView.classList.add('hidden');
+            els.dashboardView.classList.remove('hidden');
+            renderProjects();
+        }
+
+        function openChat(projectId, chatId) {
+            activeProjectId = projectId;
+            activeChatId = chatId;
+
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return showDashboard();
+
+            const chat = project.chats.find(c => c.id === chatId);
+            if (!chat) return showDashboard();
+
+            saveToStorage();
+
+            els.currentProjectName.innerText = project.name;
+            els.dashboardView.classList.add('hidden');
+            els.chatView.classList.remove('hidden');
+
+            renderMessages(chat.messages);
+            renderSidebar();
+        }
+
+        function startNewChat(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            const newChat = {
+                id: Date.now().toString(),
+                title: 'New Conversation',
+                messages: [],
+                updatedAt: Date.now()
+            };
+
+            project.chats.unshift(newChat);
+            saveToStorage();
+            openChat(projectId, newChat.id);
+        }
+
+        // UI Building
+        function renderProjects() {
+            const grid = els.dashboardGrid;
+            grid.innerHTML = '';
+
+            if (projects.length === 0) {
+                document.getElementById('dashboardEmpty').classList.remove('hidden');
+            } else {
+                document.getElementById('dashboardEmpty').classList.add('hidden');
+                projects.forEach(p => {
+                    const card = document.createElement('div');
+                    card.className = "bg-[#1c1c1f] hover:bg-[#222226] border border-[#333] hover:border-[#444] rounded-2xl p-6 cursor-pointer transition-all group flex flex-col h-48 relative shadow-lg";
+                    card.onclick = () => startNewChat(p.id);
+
+                    const timeAgo = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : 'Draft';
+
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between mb-3">
+                             <div class="font-serif font-bold text-[19px] text-gray-100 group-hover:text-white truncate pr-6 transition-colors">${p.name}</div>
+                             <div class="opacity-0 group-hover:opacity-100 transition-all text-[#60a5fa] transform group-hover:translate-x-1 group-hover:-translate-y-1">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                             </div>
+                        </div>
+                        <p class="text-[13px] text-gray-500 line-clamp-3 leading-relaxed flex-1 italic group-hover:text-gray-400 transition-colors">${p.instructions || 'Standard AI alignment.'}</p>
+                        <div class="mt-6 flex items-center justify-between">
+                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">${timeAgo}</span>
+                            <div class="w-1.5 h-1.5 rounded-full bg-[#d97757]/40 ring-4 ring-[#d97757]/5"></div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+            renderSidebar();
+        }
+
+        function renderSidebar() {
+            const list = els.sidebarProjectList;
+            list.innerHTML = '';
+            projects.forEach(p => {
+                const isProjectActive = p.id === activeProjectId;
+
+                // Project Item
+                const pRow = document.createElement('div');
+                pRow.className = `px-3 py-2 rounded-xl cursor-pointer text-sm truncate transition-all flex items-center justify-between group mb-1 ${isProjectActive ? 'text-white font-bold' : 'text-gray-500 hover:bg-[#111] hover:text-gray-300'}`;
+                pRow.onclick = () => { if (!isProjectActive) openChat(p.id, p.chats[0]?.id || startNewChat(p.id)); };
+
+                pRow.innerHTML = `
+                    <div class="flex items-center gap-3 truncate">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="${isProjectActive ? 'text-[#60a5fa]' : 'text-gray-700'} transition-colors"><rect width="16" height="16" x="4" y="4" rx="3" /></svg>
+                        <span class="truncate">${p.name}</span>
+                    </div>
+                `;
+                list.appendChild(pRow);
+
+                // If active, list its chats
+                if (isProjectActive) {
+                    const chatListContainer = document.createElement('div');
+                    chatListContainer.className = "ml-6 mb-4 space-y-1 border-l border-[#222] pl-2";
+
+                    p.chats.forEach(chat => {
+                        const isChatActive = chat.id === activeChatId;
+                        const cRow = document.createElement('div');
+                        cRow.className = `px-2 py-1.5 rounded-lg cursor-pointer text-[13px] truncate transition-all flex items-center justify-between group ${isChatActive ? 'bg-[#1c1c1f] text-white' : 'text-gray-500 hover:text-gray-300'}`;
+                        cRow.onclick = (e) => { e.stopPropagation(); openChat(p.id, chat.id); };
+
+                        cRow.innerHTML = `
+                            <span class="truncate">${chat.title}</span>
+                            <button onclick="deleteChat(event, '${p.id}', '${chat.id}')" class="opacity-0 group-hover:opacity-100 hover:text-red-400 p-0.5 transition-opacity">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                        `;
+                        chatListContainer.appendChild(cRow);
+                    });
+
+                    const newChatBtn = document.createElement('div');
+                    newChatBtn.className = "px-2 py-1.5 text-[12px] text-gray-500 hover:text-[#60a5fa] cursor-pointer flex items-center gap-2 transition-colors";
+                    newChatBtn.onclick = (e) => { e.stopPropagation(); startNewChat(p.id); };
+                    newChatBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Chat`;
+                    chatListContainer.appendChild(newChatBtn);
+
+                    list.appendChild(chatListContainer);
+                }
+            });
+        }
+
+        function deleteChat(e, pId, cId) {
+            e.stopPropagation();
+            showConfirm('Delete Chat', 'Are you sure you want to delete this specific conversation?', () => {
+                const project = projects.find(p => p.id === pId);
+                if (project) {
+                    project.chats = project.chats.filter(c => c.id !== cId);
+                    saveToStorage();
+                    if (activeChatId === cId) {
+                        if (project.chats.length > 0) openChat(pId, project.chats[0].id);
+                        else showDashboard();
+                    } else {
+                        renderSidebar();
+                    }
+                    showToast('Chat deleted');
+                }
+            });
+        }
+
+        function renderMessages(history) {
+            els.messagesInner.innerHTML = '';
+            history.forEach((msg, index) => appendMessage(msg.role, msg.text, index));
+            scrollToBottom();
+        }
+
+        function appendMessage(role, text, index) {
+            const isUser = role === 'user';
+            const div = document.createElement('div');
+            div.className = "flex gap-5 w-full animate-fade-in message-group";
+
+            // Process DeepSeek Reasoning blocks if they exist
+            let processedText = text;
+            if (text.includes('<thought>') || text.includes('</thought>')) {
+                processedText = text.replace(/<thought>([\s\S]*?)<\/thought>/g, (match, thought) => {
+                    return `<div class="thought-block">${marked.parse(thought.trim())}</div>`;
+                });
+            }
+
+            const actionsHtml = `
+                <div class="message-actions">
+                    <button class="action-btn" onclick="copyMessage(this)" data-text="${encodeURIComponent(text)}" title="Copy Message">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                    <button class="action-btn" onclick="deleteMessage(${index})" title="Delete Message">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            `;
+
+            if (isUser) {
+                div.classList.add('justify-end');
+                div.innerHTML = `
+                    <div class="relative max-w-[85%]">
+                        ${actionsHtml}
+                        <div class="bg-[#242427] text-gray-100 px-6 py-4 rounded-3xl rounded-tr-md shadow-xl leading-relaxed text-[16px] border border-white/5">
+                            ${text.replace(/\n/g, '<br>')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                div.innerHTML = `
+                    <div class="flex-shrink-0 mt-2">
+                         <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#60a5fa] to-[#93c5fd] flex items-center justify-center text-white shadow-2xl">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0 relative">
+                        ${actionsHtml}
+                        <div class="prose prose-invert prose-base max-w-none text-gray-200 markdown-body leading-relaxed selection:bg-[#60a5fa]/30">
+                            ${processedText !== text ? processedText : marked.parse(text)}
+                        </div>
+                    </div>
+                `;
+            }
+
+            els.messagesInner.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                els.messagesContainer.scrollTop = els.messagesContainer.scrollHeight;
+            }, 50);
+        }
+
+        // Logic: Functions
+        function createProject() {
+            const name = els.newProjectName.value.trim();
+            const instructions = els.newProjectInstructions.value.trim();
+            if (!name) return showToast('Project name cannot be empty', 'error');
+
+            const newProject = {
+                id: Date.now().toString(),
+                name,
+                instructions,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                messages: []
+            };
+
+            projects.unshift(newProject);
+            saveToStorage();
+            closeProjectModal();
+            els.newProjectName.value = '';
+            els.newProjectInstructions.value = '';
+            renderProjects();
+            showToast('Project created successfully');
+        }
+
+        function deleteActiveProject() {
+            if (!activeProjectId) return;
+            showConfirm('Delete Project', 'This will permanently erase this project and all its settings. Are you sure?', () => {
+                projects = projects.filter(p => p.id !== activeProjectId);
+                saveToStorage();
+                showDashboard();
+                showToast('Project deleted successfully');
+            });
+        }
+
+        function clearChat() {
+            if (!activeProjectId || !activeChatId) return;
+            showConfirm('Reset Chat', 'Clear the entire conversation history? Your instructions will remain intact.', () => {
+                const project = projects.find(p => p.id === activeProjectId);
+                const chat = project?.chats.find(c => c.id === activeChatId);
+                if (chat) {
+                    chat.messages = [];
+                    saveToStorage();
+                    renderMessages([]);
+                    showToast('History cleared');
+                }
+            });
+        }
+
+        function copyMessage(btn) {
+            const text = decodeURIComponent(btn.getAttribute('data-text'));
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                setTimeout(() => { btn.innerHTML = originalHtml; }, 2000);
+                showToast('Message copied');
+            });
+        }
+
+        function deleteMessage(index) {
+            if (!activeProjectId || !activeChatId) return;
+            const project = projects.find(p => p.id === activeProjectId);
+            const chat = project?.chats.find(c => c.id === activeChatId);
+            if (!chat) return;
+
+            chat.messages.splice(index, 1);
+            saveToStorage();
+            renderMessages(chat.messages);
+            showToast('Message deleted');
+        }
+
+        function exportConversation() {
+            if (!activeProjectId || !activeChatId) return;
+            const project = projects.find(p => p.id === activeProjectId);
+            const chat = project?.chats.find(c => c.id === activeChatId);
+            if (!chat || chat.messages.length === 0) return showToast('No conversation to save', 'error');
+
+            let content = `# Conversation: ${chat.title}\n\n`;
+            content += `> Project: ${project.name}\n`;
+            if (project.instructions) content += `> System Instructions: ${project.instructions}\n\n---\n\n`;
+
+            chat.messages.forEach(msg => {
+                const role = msg.role === 'user' ? 'USER' : 'AI (DeepSeek)';
+                content += `### ${role}\n${msg.text}\n\n`;
+            });
+
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${chat.title.replace(/\s+/g, '_')}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Conversation exported');
+        }
+
+        async function sendMessage() {
+            if (!activeProjectId || !activeChatId || !apiKey) return;
+            const text = els.chatInput.value.trim();
+            if (!text) return;
+
+            const project = projects.find(p => p.id === activeProjectId);
+            const chat = project?.chats.find(c => c.id === activeChatId);
+            if (!chat) return;
+
+            // UI Reset
+            els.chatInput.value = '';
+            els.chatInput.style.height = 'auto';
+            els.sendBtn.disabled = true;
+
+            chat.messages.push({ role: 'user', text });
+            chat.updatedAt = Date.now();
+            project.updatedAt = Date.now();
+
+            // Auto-update chat title on first message
+            if (chat.title === 'New Conversation' && text.length > 5) {
+                chat.title = text.substring(0, 30) + (text.length > 30 ? '...' : '');
+            }
+
+            saveToStorage();
+            appendMessage('user', text, chat.messages.length - 1);
+            renderSidebar();
+
+            const loaderId = "loader-" + Date.now();
+            const loaderDiv = document.createElement('div');
+            loaderDiv.className = "flex gap-5 w-full animate-fade-in";
+            loaderDiv.id = loaderId;
+            loaderDiv.innerHTML = `
+                <div class="flex-shrink-0 mt-2">
+                      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#60a5fa] to-[#93c5fd] flex items-center justify-center text-white shadow-2xl">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 h-10">
+                    <div class="w-1.5 h-1.5 bg-gray-600 rounded-full animate-pulse"></div>
+                    <div class="w-1.5 h-1.5 bg-gray-500 rounded-full animate-pulse delay-75"></div>
+                    <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse delay-150"></div>
+                </div>
+            `;
+            els.messagesInner.appendChild(loaderDiv);
+            scrollToBottom();
+
+            // API Call - OpenRouter (Qwen 3)
+            try {
+                // Convert message history to OpenAI format
+                const messages = [];
+
+                // Add system instruction if exists
+                if (project.instructions) {
+                    messages.push({
+                        role: 'system',
+                        content: project.instructions
+                    });
+                }
+
+                // Add conversation history (convert 'model' role to 'assistant')
+                chat.messages.forEach(m => {
+                    messages.push({
+                        role: m.role === 'model' ? 'assistant' : m.role,
+                        content: m.text
+                    });
+                });
+
+                // OpenRouter API endpoint (OpenAI-compatible)
+                const url = 'https://openrouter.ai/api/v1/chat/completions';
+
+                const payload = {
+                    model: 'deepseek/deepseek-r1-0528:free', // New DeepSeek R1 Update (Free)
+                    messages: messages,
+                    temperature: 0.7,
+                    max_tokens: 4096 // Bumped for Qwen 3's larger context
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'HTTP-Referer': window.location.origin,
+                        'X-Title': 'Own AI Project Manager'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                document.getElementById(loaderId)?.remove();
+
+                if (!res.ok) {
+                    throw new Error(data.error?.message || `API Response: ${res.status}`);
+                }
+
+                const reply = data.choices?.[0]?.message?.content;
+                if (!reply) throw new Error('No response from DeepSeek R1 model.');
+
+                chat.messages.push({ role: 'model', text: reply });
+                chat.updatedAt = Date.now();
+                saveToStorage();
+                appendMessage('model', reply, chat.messages.length - 1);
+
+            } catch (err) {
+                document.getElementById(loaderId)?.remove();
+                console.error(err);
+                appendMessage('model', `**Execution Error**: ${err.message}. \n\n*Check that your OpenRouter API key is valid. Get one at [openrouter.ai/keys](https://openrouter.ai/keys)*`);
+            }
+        }
+
+        // Utils & Listeners
+        function handleEnter(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+            els.sendBtn.disabled = !els.chatInput.value.trim();
+        }
+        els.chatInput.addEventListener('input', (e) => {
+            els.sendBtn.disabled = !e.target.value.trim();
+        });
+
+        function openProjectModal(edit = false) {
+            const title = document.querySelector('#projectModal h3');
+            const submit = document.querySelector('#projectModal button[onclick="createProject()"]');
+
+            if (edit && activeProjectId) {
+                const p = projects.find(p => p.id === activeProjectId);
+                title.innerText = 'Refine Alignment';
+                submit.innerText = 'Update Alignment';
+                submit.setAttribute('onclick', 'updateProject()');
+                els.newProjectName.value = p.name;
+                els.newProjectInstructions.value = p.instructions;
+            } else {
+                title.innerText = 'New Alignment';
+                submit.innerText = 'Create Project';
+                submit.setAttribute('onclick', 'createProject()');
+                els.newProjectName.value = '';
+                els.newProjectInstructions.value = '';
+            }
+            els.projectModal.classList.remove('hidden');
+            els.newProjectName.focus();
+        }
+
+        function updateProject() {
+            if (!activeProjectId) return;
+            const p = projects.find(p => p.id === activeProjectId);
+            if (!p) return;
+
+            p.name = els.newProjectName.value.trim();
+            p.instructions = els.newProjectInstructions.value.trim();
+            p.updatedAt = Date.now();
+
+            saveToStorage();
+            closeProjectModal();
+            renderSidebar();
+            renderProjects();
+        }
+
+        function closeProjectModal() { els.projectModal.classList.add('hidden'); }
+        function openSettingsModal() {
+            els.settingsModal.classList.remove('hidden');
+            els.apiKeyInput.value = apiKey;
+            els.apiKeyInput.focus();
+        }
+        function closeSettingsModal() { els.settingsModal.classList.add('hidden'); }
+        function saveSettings() {
+            apiKey = els.apiKeyInput.value.trim();
+            saveToStorage();
+            closeSettingsModal();
+            showToast('Settings updated');
+        }
+
+        // --- Custom UI Utilities ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            const icon = type === 'success' ?
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' :
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+
+            toast.innerHTML = `${icon} <span class="text-sm font-medium">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function showConfirm(title, message, onConfirm) {
+            const overlay = document.getElementById('customDialogOverlay');
+            const titleEl = document.getElementById('dialogTitle');
+            const messageEl = document.getElementById('dialogMessage');
+            const cancelBtn = document.getElementById('dialogCancel');
+            const confirmBtn = document.getElementById('dialogConfirm');
+
+            titleEl.innerText = title;
+            messageEl.innerText = message;
+            overlay.classList.remove('hidden');
+
+            const cleanup = () => {
+                overlay.classList.add('hidden');
+                confirmBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            confirmBtn.onclick = () => { cleanup(); onConfirm(); };
+            cancelBtn.onclick = () => cleanup();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
