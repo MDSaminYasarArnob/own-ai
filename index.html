@@ -189,7 +189,7 @@
             right: 24px;
             z-index: 1000;
             display: flex;
-            flex-col-reverse: column;
+            flex-direction: column-reverse;
             gap: 8px;
         }
 
@@ -219,9 +219,9 @@
             }
         }
     </style>
-<link rel="me" href="https://www.blogger.com/profile/02302725608151393881" />
-<meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109'/>
-<meta name='google-adsense-platform-domain' content='blogspot.com'/>
+    <link rel="me" href="https://www.blogger.com/profile/02302725608151393881" />
+    <meta name='google-adsense-platform-account' content='ca-host-pub-1556223355139109' />
+    <meta name='google-adsense-platform-domain' content='blogspot.com' />
 </head>
 
 <body class="h-screen w-full overflow-hidden flex text-[15px]">
@@ -250,29 +250,64 @@
             </button>
         </div>
 
-        <!-- Start New Chat / Dashboard -->
+        <!-- Start New Chat -->
+        <div class="px-3 mb-2">
+            <button onclick="startNewChat('chatgpt')"
+                class="w-full flex items-center gap-3 bg-[#1e1e1e] hover:bg-[#2a2a2a] text-gray-200 transition-all font-medium py-3 px-4 rounded-lg border border-[#333] text-sm group shadow-sm mb-4">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>New chat</span>
+            </button>
+        </div>
+
+        <!-- Dashboard / Projects Toggle -->
         <div class="px-3 mb-2">
             <button onclick="showDashboard()"
-                class="w-full flex items-center gap-3 bg-[#1e1e1e] hover:bg-[#2a2a2a] text-gray-200 transition-all font-medium py-2 px-3 rounded-lg border border-[#333] text-sm group shadow-sm">
-                <!-- Custom Projects Layout Icon SVG -->
+                class="w-full flex items-center gap-3 hover:bg-[#1c1c1f] text-gray-400 hover:text-gray-200 transition-all font-medium py-2 px-3 rounded-lg text-sm group">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round"
-                    class="text-gray-400 group-hover:text-white transition">
+                    class="text-gray-500 group-hover:text-white transition">
                     <rect x="3" y="3" width="7" height="7"></rect>
                     <rect x="14" y="3" width="7" height="7"></rect>
                     <rect x="14" y="14" width="7" height="7"></rect>
                     <rect x="3" y="14" width="7" height="7"></rect>
                 </svg>
-                <span>Projects</span>
+                <span>All Projects</span>
             </button>
         </div>
 
-        <!-- Project List Label -->
-        <div class="px-5 mt-4 mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recents</div>
+        <!-- Scrollable Sidebar Content -->
+        <div class="flex-1 overflow-y-auto px-1.5 space-y-6 py-2" id="sidebarScrollable">
+            <!-- Projects Section -->
+            <section id="projectsSection">
+                <div class="px-3 mb-2">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Projects</span>
+                </div>
+                <!-- New Project Item -->
+                <div onclick="openProjectModal()"
+                    class="mx-1.5 px-3 py-2 rounded-xl cursor-pointer text-sm text-gray-500 hover:bg-[#111] hover:text-gray-300 transition-all flex items-center gap-3 group mb-1">
+                    <div
+                        class="w-5 h-5 flex items-center justify-center border border-dashed border-gray-600 rounded bg-transparent group-hover:border-gray-400">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </div>
+                    <span>New project</span>
+                </div>
+                <div id="sidebarProjectList" class="space-y-0.5"></div>
+            </section>
 
-        <!-- Project List -->
-        <div class="flex-1 overflow-y-auto px-3 space-y-0.5" id="sidebarProjectList">
-            <!-- Sidebar Items injected here -->
+            <!-- Global Chats Section -->
+            <section id="globalChatsSection">
+                <div class="px-3 mb-2">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Your chats</span>
+                </div>
+                <div id="sidebarGlobalChatList" class="space-y-0.5"></div>
+            </section>
         </div>
 
         <!-- Footer -->
@@ -391,7 +426,7 @@
                         </svg>
                     </button>
                     <div class="h-4 w-[1px] bg-[#333]"></div>
-                    <span
+                    <span id="modelTag"
                         class="text-[10px] font-mono text-gray-600 bg-[#1c1c1f] px-2 py-1 rounded border border-[#222]">DEEPSEEK-R1</span>
                 </div>
             </header>
@@ -456,7 +491,7 @@
             <div class="mt-10 flex justify-end gap-4">
                 <button onclick="closeProjectModal()"
                     class="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">Cancel</button>
-                <button onclick="createProject()"
+                <button id="projectSubmitBtn" onclick="createProject()"
                     class="px-8 py-2.5 bg-[#d97757] hover:bg-[#c56a4b] text-white rounded-xl font-bold transition-all shadow-lg text-sm">Create
                     Project</button>
             </div>
@@ -529,7 +564,8 @@
         let projects = [];
         let activeProjectId = null;
         let activeChatId = null;
-        let apiKey = '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';
+        let apiKey = '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';
+        const PICO_LLM_API = 'https://backend.buildpicoapps.com/aero/run/llm-api?pk=v1-Z0FBQUFBQnBZaWJYd0tieVFxQVpkcXAzRnpWdHM3MHZMNXZ1QUxqUUF5aWNvdmNYR1JFd3FCNUtfUkxXR3dKUWRZZzBZWjN1OVc5SHBUZ0JvS0d0UjNIX1lMOXZzMVgzSGc9PQ==';
 
         const els = {
             dashboardView: document.getElementById('dashboardView'),
@@ -551,7 +587,36 @@
         // Initialize App
         async function init() {
             loadFromStorage();
+
+            // Ensure ChatGPT project (Own AI) exists
+            if (!projects.find(p => p.id === 'chatgpt')) {
+                projects.push({
+                    id: 'chatgpt',
+                    name: 'Own AI',
+                    instructions: 'You are Own AI, a helpful assistant powered by GPT-3.5.',
+                    chats: [],
+                    updatedAt: Date.now(),
+                    isSystem: true
+                });
+                saveToStorage();
+            } else {
+                // Update name if it was previously set to ChatGPT 3.5
+                const chatgpt = projects.find(p => p.id === 'chatgpt');
+                if (chatgpt.name !== 'Own AI') {
+                    chatgpt.name = 'Own AI';
+                    saveToStorage();
+                }
+            }
+
             migrateData();
+
+            // Sync hardcoded API key if needed
+            const projectKey = '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';
+            if (apiKey !== projectKey) {
+                apiKey = projectKey;
+                saveToStorage();
+            }
+
             if (!apiKey) openSettingsModal();
 
             if (activeProjectId && activeChatId) {
@@ -559,10 +624,10 @@
                 if (project && project.chats.find(c => c.id === activeChatId)) {
                     openChat(activeProjectId, activeChatId);
                 } else {
-                    showDashboard();
+                    startChatGPTChat();
                 }
             } else {
-                showDashboard();
+                startChatGPTChat();
             }
             renderProjects();
         }
@@ -632,12 +697,26 @@
 
             saveToStorage();
 
-            els.currentProjectName.innerText = project.name;
+            els.currentProjectName.innerText = project.name === 'Own AI' ? chat.title : project.name;
+            document.getElementById('modelTag').innerText = projectId === 'chatgpt' ? 'OWN AI' : 'GLM-4.5-AIR';
+
             els.dashboardView.classList.add('hidden');
             els.chatView.classList.remove('hidden');
 
             renderMessages(chat.messages);
             renderSidebar();
+        }
+
+        function startChatGPTChat() {
+            const projectId = 'chatgpt';
+            const project = projects.find(p => p.id === projectId);
+            if (!project) return;
+
+            if (project.chats.length > 0) {
+                openChat(projectId, project.chats[0].id);
+            } else {
+                startNewChat(projectId);
+            }
         }
 
         function startNewChat(projectId) {
@@ -661,14 +740,19 @@
             const grid = els.dashboardGrid;
             grid.innerHTML = '';
 
-            if (projects.length === 0) {
+            const dashboardProjects = projects.filter(p => !p.isSystem);
+
+            if (dashboardProjects.length === 0) {
                 document.getElementById('dashboardEmpty').classList.remove('hidden');
             } else {
                 document.getElementById('dashboardEmpty').classList.add('hidden');
-                projects.forEach(p => {
+                dashboardProjects.forEach(p => {
                     const card = document.createElement('div');
                     card.className = "bg-[#1c1c1f] hover:bg-[#222226] border border-[#333] hover:border-[#444] rounded-2xl p-6 cursor-pointer transition-all group flex flex-col h-48 relative shadow-lg";
-                    card.onclick = () => startNewChat(p.id);
+                    card.onclick = () => {
+                        if (p.chats && p.chats.length > 0) openChat(p.id, p.chats[0].id);
+                        else startNewChat(p.id);
+                    };
 
                     const timeAgo = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : 'Draft';
 
@@ -692,34 +776,22 @@
         }
 
         function renderSidebar() {
-            const list = els.sidebarProjectList;
-            list.innerHTML = '';
+            const projectList = document.getElementById('sidebarProjectList');
+            const globalList = document.getElementById('sidebarGlobalChatList');
+
+            projectList.innerHTML = '';
+            globalList.innerHTML = '';
+
             projects.forEach(p => {
                 const isProjectActive = p.id === activeProjectId;
 
-                // Project Item
-                const pRow = document.createElement('div');
-                pRow.className = `px-3 py-2 rounded-xl cursor-pointer text-sm truncate transition-all flex items-center justify-between group mb-1 ${isProjectActive ? 'text-white font-bold' : 'text-gray-500 hover:bg-[#111] hover:text-gray-300'}`;
-                pRow.onclick = () => { if (!isProjectActive) openChat(p.id, p.chats[0]?.id || startNewChat(p.id)); };
-
-                pRow.innerHTML = `
-                    <div class="flex items-center gap-3 truncate">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" class="${isProjectActive ? 'text-[#60a5fa]' : 'text-gray-700'} transition-colors"><rect width="16" height="16" x="4" y="4" rx="3" /></svg>
-                        <span class="truncate">${p.name}</span>
-                    </div>
-                `;
-                list.appendChild(pRow);
-
-                // If active, list its chats
-                if (isProjectActive) {
-                    const chatListContainer = document.createElement('div');
-                    chatListContainer.className = "ml-6 mb-4 space-y-1 border-l border-[#222] pl-2";
-
+                if (p.isSystem && p.id === 'chatgpt') {
+                    // Render "Your chats" (Global/ChatGPT sessions)
                     p.chats.forEach(chat => {
-                        const isChatActive = chat.id === activeChatId;
+                        const isChatActive = chat.id === activeChatId && isProjectActive;
                         const cRow = document.createElement('div');
-                        cRow.className = `px-2 py-1.5 rounded-lg cursor-pointer text-[13px] truncate transition-all flex items-center justify-between group ${isChatActive ? 'bg-[#1c1c1f] text-white' : 'text-gray-500 hover:text-gray-300'}`;
-                        cRow.onclick = (e) => { e.stopPropagation(); openChat(p.id, chat.id); };
+                        cRow.className = `mx-1.5 px-3 py-2.5 rounded-xl cursor-pointer text-sm truncate transition-all flex items-center justify-between group ${isChatActive ? 'bg-[#1c1c1f] text-white font-medium shadow-sm' : 'text-gray-400 hover:bg-[#111] hover:text-gray-200'}`;
+                        cRow.onclick = () => openChat(p.id, chat.id);
 
                         cRow.innerHTML = `
                             <span class="truncate">${chat.title}</span>
@@ -727,16 +799,54 @@
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         `;
-                        chatListContainer.appendChild(cRow);
+                        globalList.appendChild(cRow);
                     });
+                } else {
+                    // Render "Projects"
+                    const pRow = document.createElement('div');
+                    pRow.className = `mx-1.5 px-3 py-2 rounded-xl cursor-pointer text-sm truncate transition-all flex items-center justify-between group mb-1 ${isProjectActive ? 'text-white font-bold bg-[#1c1c1f]' : 'text-gray-400 hover:bg-[#111] hover:text-gray-200'}`;
+                    pRow.onclick = () => {
+                        if (isProjectActive) return;
+                        if (p.chats && p.chats.length > 0) openChat(p.id, p.chats[0].id);
+                        else startNewChat(p.id);
+                    };
 
-                    const newChatBtn = document.createElement('div');
-                    newChatBtn.className = "px-2 py-1.5 text-[12px] text-gray-500 hover:text-[#60a5fa] cursor-pointer flex items-center gap-2 transition-colors";
-                    newChatBtn.onclick = (e) => { e.stopPropagation(); startNewChat(p.id); };
-                    newChatBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Chat`;
-                    chatListContainer.appendChild(newChatBtn);
+                    pRow.innerHTML = `
+                        <div class="flex items-center gap-3 truncate">
+                            <span class="text-[#60a5fa] font-serif font-bold text-xs">{ }</span>
+                            <span class="truncate">${p.name}</span>
+                        </div>
+                    `;
+                    projectList.appendChild(pRow);
 
-                    list.appendChild(chatListContainer);
+                    // If active project, list its specific chats
+                    if (isProjectActive) {
+                        const chatListContainer = document.createElement('div');
+                        chatListContainer.className = "ml-6 mb-4 space-y-1 border-l border-[#222] pl-2";
+
+                        p.chats.forEach(chat => {
+                            const isChatActive = chat.id === activeChatId;
+                            const cRow = document.createElement('div');
+                            cRow.className = `px-2 py-1.5 rounded-lg cursor-pointer text-[13px] truncate transition-all flex items-center justify-between group ${isChatActive ? 'bg-[#1c1c1f] text-white' : 'text-gray-500 hover:text-gray-300'}`;
+                            cRow.onclick = (e) => { e.stopPropagation(); openChat(p.id, chat.id); };
+
+                            cRow.innerHTML = `
+                                <span class="truncate">${chat.title}</span>
+                                <button onclick="deleteChat(event, '${p.id}', '${chat.id}')" class="opacity-0 group-hover:opacity-100 hover:text-red-400 p-0.5 transition-opacity">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            `;
+                            chatListContainer.appendChild(cRow);
+                        });
+
+                        const newChatBtn = document.createElement('div');
+                        newChatBtn.className = "px-2 py-1.5 text-[12px] text-gray-500 hover:text-[#60a5fa] cursor-pointer flex items-center gap-2 transition-colors";
+                        newChatBtn.onclick = (e) => { e.stopPropagation(); startNewChat(p.id); };
+                        newChatBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> New Chat`;
+                        chatListContainer.appendChild(newChatBtn);
+
+                        projectList.appendChild(chatListContainer);
+                    }
                 }
             });
         }
@@ -837,7 +947,7 @@
                 instructions,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
-                messages: []
+                chats: []
             };
 
             projects.unshift(newProject);
@@ -845,12 +955,19 @@
             closeProjectModal();
             els.newProjectName.value = '';
             els.newProjectInstructions.value = '';
+
+            // Automatically start a chat in the new project
+            startNewChat(newProject.id);
+
             renderProjects();
             showToast('Project created successfully');
         }
 
         function deleteActiveProject() {
             if (!activeProjectId) return;
+            const project = projects.find(p => p.id === activeProjectId);
+            if (project && project.isSystem) return showToast('Cannot delete system chat', 'error');
+
             showConfirm('Delete Project', 'This will permanently erase this project and all its settings. Are you sure?', () => {
                 projects = projects.filter(p => p.id !== activeProjectId);
                 saveToStorage();
@@ -966,57 +1083,68 @@
             els.messagesInner.appendChild(loaderDiv);
             scrollToBottom();
 
-            // API Call - OpenRouter (Qwen 3)
+            // API Call
             try {
-                // Convert message history to OpenAI format
-                const messages = [];
+                let reply = '';
 
-                // Add system instruction if exists
-                if (project.instructions) {
-                    messages.push({
-                        role: 'system',
-                        content: project.instructions
+                if (activeProjectId === 'chatgpt') {
+                    // Call PicoApps API (ChatGPT 3.5)
+                    const res = await fetch(PICO_LLM_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: text })
                     });
+
+                    const data = await res.json();
+                    document.getElementById(loaderId)?.remove();
+
+                    if (data.status === 'success') {
+                        reply = data.text;
+                    } else {
+                        throw new Error(data.message || 'Error from ChatGPT API');
+                    }
+                } else {
+                    // Call OpenRouter API (GLM-4 Air)
+                    const messages = [];
+                    if (project.instructions) {
+                        messages.push({ role: 'system', content: project.instructions });
+                    }
+                    chat.messages.forEach(m => {
+                        messages.push({
+                            role: m.role === 'model' ? 'assistant' : m.role,
+                            content: m.text
+                        });
+                    });
+
+                    const url = 'https://openrouter.ai/api/v1/chat/completions';
+                    const payload = {
+                        model: 'z-ai/glm-4.5-air:free',
+                        messages: messages,
+                        temperature: 0.7
+                    };
+
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`,
+                            'HTTP-Referer': 'https://ownai.app',
+                            'X-Title': 'Own AI Manager'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await res.json();
+                    document.getElementById(loaderId)?.remove();
+
+                    if (!res.ok) {
+                        throw new Error(data.error?.message || `API Response: ${res.status}`);
+                    }
+
+                    reply = data.choices?.[0]?.message?.content;
                 }
 
-                // Add conversation history (convert 'model' role to 'assistant')
-                chat.messages.forEach(m => {
-                    messages.push({
-                        role: m.role === 'model' ? 'assistant' : m.role,
-                        content: m.text
-                    });
-                });
-
-                // OpenRouter API endpoint (OpenAI-compatible)
-                const url = 'https://openrouter.ai/api/v1/chat/completions';
-
-                const payload = {
-                    model: 'deepseek/deepseek-r1-0528:free', // New DeepSeek R1 Update (Free)
-                    messages: messages,
-                    temperature: 0.7,
-                    max_tokens: 4096 // Bumped for Qwen 3's larger context
-                };
-
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`,
-                        'HTTP-Referer': window.location.origin,
-                        'X-Title': 'Own AI Project Manager'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await res.json();
-                document.getElementById(loaderId)?.remove();
-
-                if (!res.ok) {
-                    throw new Error(data.error?.message || `API Response: ${res.status}`);
-                }
-
-                const reply = data.choices?.[0]?.message?.content;
-                if (!reply) throw new Error('No response from DeepSeek R1 model.');
+                if (!reply) throw new Error('No response from AI model.');
 
                 chat.messages.push({ role: 'model', text: reply });
                 chat.updatedAt = Date.now();
@@ -1026,7 +1154,7 @@
             } catch (err) {
                 document.getElementById(loaderId)?.remove();
                 console.error(err);
-                appendMessage('model', `**Execution Error**: ${err.message}. \n\n*Check that your OpenRouter API key is valid. Get one at [openrouter.ai/keys](https://openrouter.ai/keys)*`);
+                appendMessage('model', `**Execution Error**: ${err.message}. ${activeProjectId !== 'chatgpt' ? '\n\n*Check that your API key is valid.*' : ''}`);
             }
         }
 
@@ -1044,7 +1172,7 @@
 
         function openProjectModal(edit = false) {
             const title = document.querySelector('#projectModal h3');
-            const submit = document.querySelector('#projectModal button[onclick="createProject()"]');
+            const submit = document.getElementById('projectSubmitBtn');
 
             if (edit && activeProjectId) {
                 const p = projects.find(p => p.id === activeProjectId);
@@ -1077,6 +1205,14 @@
             closeProjectModal();
             renderSidebar();
             renderProjects();
+
+            // Update header if we're in the chat view of this project
+            if (activeProjectId === p.id) {
+                const chat = p.chats.find(c => c.id === activeChatId);
+                els.currentProjectName.innerText = p.name === 'Own AI' ? (chat?.title || p.name) : p.name;
+            }
+
+            showToast('Alignment updated');
         }
 
         function closeProjectModal() { els.projectModal.classList.add('hidden'); }
