@@ -564,7 +564,7 @@
         let projects = [];
         let activeProjectId = null;
         let activeChatId = null;
-        let apiKey = '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';
+        let apiKey = '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';
         const PICO_LLM_API = 'https://backend.buildpicoapps.com/aero/run/llm-api?pk=v1-Z0FBQUFBQnBZaWJYd0tieVFxQVpkcXAzRnpWdHM3MHZMNXZ1QUxqUUF5aWNvdmNYR1JFd3FCNUtfUkxXR3dKUWRZZzBZWjN1OVc5SHBUZ0JvS0d0UjNIX1lMOXZzMVgzSGc9PQ==';
 
         const els = {
@@ -611,7 +611,7 @@
             migrateData();
 
             // Sync hardcoded API key if needed
-            const projectKey = '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';
+            const projectKey = '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';
             if (apiKey !== projectKey) {
                 apiKey = projectKey;
                 saveToStorage();
@@ -624,10 +624,10 @@
                 if (project && project.chats.find(c => c.id === activeChatId)) {
                     openChat(activeProjectId, activeChatId);
                 } else {
-                    startChatGPTChat();
+                    openChat('chatgpt', null);
                 }
             } else {
-                startChatGPTChat();
+                openChat('chatgpt', null);
             }
             renderProjects();
         }
@@ -692,47 +692,33 @@
             const project = projects.find(p => p.id === projectId);
             if (!project) return showDashboard();
 
-            const chat = project.chats.find(c => c.id === chatId);
-            if (!chat) return showDashboard();
+            let messages = [];
+            if (chatId) {
+                const chat = project.chats.find(c => c.id === chatId);
+                if (!chat) return showDashboard();
+                messages = chat.messages;
+                els.currentProjectName.innerText = project.name === 'Own AI' ? chat.title : project.name;
+            } else {
+                // Draft mode
+                els.currentProjectName.innerText = project.name;
+            }
 
             saveToStorage();
-
-            els.currentProjectName.innerText = project.name === 'Own AI' ? chat.title : project.name;
-            document.getElementById('modelTag').innerText = projectId === 'chatgpt' ? 'OWN AI' : 'GLM-4.5-AIR';
+            document.getElementById('modelTag').innerText = projectId === 'chatgpt' ? 'OWN AI' : 'DEEPSEEK-R1';
 
             els.dashboardView.classList.add('hidden');
             els.chatView.classList.remove('hidden');
 
-            renderMessages(chat.messages);
+            renderMessages(messages);
             renderSidebar();
         }
 
         function startChatGPTChat() {
-            const projectId = 'chatgpt';
-            const project = projects.find(p => p.id === projectId);
-            if (!project) return;
-
-            if (project.chats.length > 0) {
-                openChat(projectId, project.chats[0].id);
-            } else {
-                startNewChat(projectId);
-            }
+            openChat('chatgpt', null);
         }
 
         function startNewChat(projectId) {
-            const project = projects.find(p => p.id === projectId);
-            if (!project) return;
-
-            const newChat = {
-                id: Date.now().toString(),
-                title: 'New Conversation',
-                messages: [],
-                updatedAt: Date.now()
-            };
-
-            project.chats.unshift(newChat);
-            saveToStorage();
-            openChat(projectId, newChat.id);
+            openChat(projectId, null);
         }
 
         // UI Building
@@ -1038,13 +1024,26 @@
         }
 
         async function sendMessage() {
-            if (!activeProjectId || !activeChatId || !apiKey) return;
+            if (!activeProjectId || !apiKey) return;
             const text = els.chatInput.value.trim();
             if (!text) return;
 
             const project = projects.find(p => p.id === activeProjectId);
-            const chat = project?.chats.find(c => c.id === activeChatId);
-            if (!chat) return;
+            if (!project) return;
+
+            let chat = project.chats.find(c => c.id === activeChatId);
+
+            // If we are in "Draft" mode, create the chat now
+            if (!chat) {
+                chat = {
+                    id: Date.now().toString(),
+                    title: text.substring(0, 30) + (text.length > 30 ? '...' : ''),
+                    messages: [],
+                    updatedAt: Date.now()
+                };
+                project.chats.unshift(chat);
+                activeChatId = chat.id;
+            }
 
             // UI Reset
             els.chatInput.value = '';
@@ -1118,7 +1117,7 @@
 
                     const url = 'https://openrouter.ai/api/v1/chat/completions';
                     const payload = {
-                        model: 'z-ai/glm-4.5-air:free',
+                        model: 'deepseek/deepseek-r1-0528:free',
                         messages: messages,
                         temperature: 0.7
                     };
@@ -1128,7 +1127,7 @@
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${apiKey}`,
-                            'HTTP-Referer': 'https://ownai.app',
+                            'HTTP-Referer': window.location.href,
                             'X-Title': 'Own AI Manager'
                         },
                         body: JSON.stringify(payload)
